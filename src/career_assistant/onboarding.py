@@ -282,13 +282,40 @@ def render_onboarding():
                 # Persist the profile info to database
                 resume_name = st.session_state.resume_file["name"] if st.session_state.resume_file else None
                 resume_bytes = st.session_state.resume_file["bytes"] if st.session_state.resume_file else None
+                
+                # Generate default resume
+                from career_assistant.ResumeBuilder import extract_all_text_from_pdf, generate_initial_markdown_from_text, generate_skeleton_markdown
+                
+                default_resume = ""
+                if resume_bytes:
+                    raw_text = extract_all_text_from_pdf(resume_bytes)
+                    if raw_text.strip():
+                        default_resume = generate_initial_markdown_from_text(
+                            raw_text,
+                            st.session_state.full_name,
+                            st.session_state.desired_role,
+                            st.session_state.location
+                        )
+                if not default_resume or not default_resume.strip():
+                    default_resume = generate_skeleton_markdown(
+                        st.session_state.full_name,
+                        st.session_state.desired_role,
+                        st.session_state.location,
+                        st.session_state.skills
+                    )
+                
                 db.save_profile(
                     full_name=st.session_state.full_name,
                     desired_role=st.session_state.desired_role,
                     location=st.session_state.location,
                     resume_name=resume_name,
                     resume_bytes=resume_bytes,
-                    skills=st.session_state.skills
+                    skills=st.session_state.skills,
+                    default_resume=default_resume
                 )
+                
+                # Update general resume markdown to the default version as well
+                db.update_resume_markdown(default_resume)
+                
                 st.session_state.onboarded = True
                 st.rerun()

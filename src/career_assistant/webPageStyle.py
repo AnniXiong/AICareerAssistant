@@ -287,5 +287,56 @@ custom_css = """
         border: 1px solid #E2EAE4;
         display: inline-block;
     }
+    
+    /* Custom Styling for chat message Delete Buttons */
+    div[class*="st-key-del_msg_"] button,
+    div[class*="st-key-del_res_msg_"] button {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        width: auto !important;
+        min-width: 0 !important;
+        height: auto !important;
+        font-size: 1.1rem !important;
+        color: #A0AEC0 !important;
+        margin: 0 !important;
+    }
+    div[class*="st-key-del_msg_"] button:hover,
+    div[class*="st-key-del_res_msg_"] button:hover {
+        background-color: transparent !important;
+        color: #E53E3E !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* Shrink the planned jobs tracker buttons */
+    div[class*="st-key-move_to_applied_"] button,
+    div[class*="st-key-apply_job_"] button,
+    div[class*="st-key-del_to_apply_"] button {
+        padding: 0.35rem 0.5rem !important;
+        font-size: 0.76rem !important;
+        height: auto !important;
+        min-height: 0 !important;
+        white-space: nowrap !important;
+    }
+    
+    /* Custom styling for history page delete buttons */
+    div[class*="st-key-del_hist_"] button {
+        padding: 0.3rem 0.6rem !important;
+        font-size: 0.85rem !important;
+        height: auto !important;
+        min-height: 0 !important;
+        background-color: #FAF2F2 !important;
+        color: #C53030 !important;
+        border: 1px solid #FEB2B2 !important;
+        border-radius: 6px !important;
+        transition: all 0.2s ease !important;
+    }
+    div[class*="st-key-del_hist_"] button:hover {
+        background-color: #E53E3E !important;
+        color: #FFFFFF !important;
+        border-color: #E53E3E !important;
+    }
 </style>
 """
