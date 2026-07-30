@@ -29,33 +29,63 @@ def render_full_list_page():
     if not jobs:
         st.info("No applied jobs found in the history.")
     else:
-        import pandas as pd
-        
-        display_data = []
-        for idx, job in enumerate(jobs):
-            display_data.append({
-                "Index": idx + 1,
-                "Company": job["company"],
-                "Role Title": job["role"],
-                "Date Applied": job["date"],
-                "Job Posting Link": job["url"] if job["url"] else ""
-            })
+        # Render beautiful grid-based list with delete buttons
+        header_cols = st.columns([0.6, 1.8, 2.2, 1.8, 2.0, 2.0, 0.8])
+        with header_cols[0]:
+            st.markdown("**#**")
+        with header_cols[1]:
+            st.markdown("**Company**")
+        with header_cols[2]:
+            st.markdown("**Role Title**")
+        with header_cols[3]:
+            st.markdown("**Date Applied**")
+        with header_cols[4]:
+            st.markdown("**Job Link**")
+        with header_cols[5]:
+            st.markdown("**Status**")
+        with header_cols[6]:
+            st.markdown("**Action**")
             
-        df = pd.DataFrame(display_data)
+        st.markdown("<hr style='border: 0; border-top: 2px solid #4A5D4E; margin: 0.5rem 0;'>", unsafe_allow_html=True)
         
-        # Render beautiful spreadsheet-like interface
-        st.dataframe(
-            df,
-            column_config={
-                "Index": st.column_config.NumberColumn("#", format="%d", width="small"),
-                "Company": st.column_config.TextColumn("Company", width="medium"),
-                "Role Title": st.column_config.TextColumn("Role Title", width="medium"),
-                "Date Applied": st.column_config.TextColumn("Date Applied", width="medium"),
-                "Job Posting Link": st.column_config.LinkColumn("Job Posting Link", width="large")
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+        for idx, job in enumerate(jobs):
+            row_cols = st.columns([0.6, 1.8, 2.2, 1.8, 2.0, 2.0, 0.8])
+            with row_cols[0]:
+                st.write(f"{idx + 1}")
+            with row_cols[1]:
+                st.write(job["company"])
+            with row_cols[2]:
+                st.write(job["role"])
+            with row_cols[3]:
+                st.write(job["date"])
+            with row_cols[4]:
+                if job["url"]:
+                    st.markdown(f'[🔗 Link]({job["url"]})')
+                else:
+                    st.markdown("<span style='color: #A0AEC0;'>None</span>", unsafe_allow_html=True)
+            with row_cols[5]:
+                status_options = ["Applied", "Interviewed"]
+                current_status = job.get("status") or "Applied"
+                try:
+                    default_idx = status_options.index(current_status)
+                except ValueError:
+                    default_idx = 0
+                selected_status = st.selectbox(
+                    "Status",
+                    options=status_options,
+                    index=default_idx,
+                    key=f"status_hist_{job['id']}",
+                    label_visibility="collapsed"
+                )
+                if selected_status != current_status:
+                    db.update_job_status(job['id'], selected_status)
+                    st.rerun()
+            with row_cols[6]:
+                if st.button("🗑️", key=f"del_hist_{job['id']}", help="Delete from history"):
+                    db.delete_job_applied(job['id'])
+                    st.rerun()
+            st.markdown("<hr style='border: 0; border-top: 1px solid #EFE8DD; margin: 0.25rem 0;'>", unsafe_allow_html=True)
+            
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Initialize Session State
@@ -137,6 +167,13 @@ else:
         render_full_list_page()
         st.stop()
 
+    if st.session_state.get("current_page", "dashboard") == "customize_resume":
+        from career_assistant import customResumeBuilder
+        import importlib
+        importlib.reload(customResumeBuilder)
+        customResumeBuilder.render_customize_resume_page()
+        st.stop()
+
     # Extract first name
     first_name = st.session_state.full_name.split()[0] if st.session_state.full_name else "User"
     desired_role = st.session_state.desired_role
@@ -214,7 +251,8 @@ else:
             st.info("No applications logged yet.")
         else:
             for idx, job in enumerate(jobs_applied):
-                with st.expander(f"💼 {job['role']}, {job['company']}"):
+                status_val = job.get('status') or 'Applied'
+                with st.expander(f"💼 {job['role']}, {job['company']} ({status_val})"):
                     edited_company = st.text_input("Company", value=job['company'], key=f"edit_company_{job['id']}")
                     edited_role = st.text_input("Role Title", value=job['role'], key=f"edit_role_{job['id']}")
                     edited_url = st.text_input("Job URL", value=job.get('url', ''), key=f"edit_url_{job['id']}", placeholder="https://example.com/job")
@@ -224,6 +262,18 @@ else:
                     except:
                         date_val = datetime.date.today()
                     edited_date = st.date_input("Date Applied", value=date_val, key=f"edit_date_{job['id']}")
+                    
+                    status_options = ["Applied", "Interviewed"]
+                    try:
+                        default_idx = status_options.index(status_val)
+                    except ValueError:
+                        default_idx = 0
+                    edited_status = st.selectbox(
+                        "Status",
+                        options=status_options,
+                        index=default_idx,
+                        key=f"edit_status_{job['id']}"
+                    )
                     
                     col_btn_save, col_btn_del = st.columns([3, 2])
                     with col_btn_save:
@@ -236,7 +286,8 @@ else:
                                     company=edited_company.strip(),
                                     role=edited_role.strip(),
                                     date=edited_date.strftime("%Y-%m-%d"),
-                                    url=edited_url.strip()
+                                    url=edited_url.strip(),
+                                    status=edited_status
                                 )
                                 st.rerun()
                     with col_btn_del:
@@ -252,6 +303,7 @@ else:
                 new_role = st.text_input("Role Title", value=desired_role, key="new_app_role")
                 new_url = st.text_input("Job URL (Optional)", key="new_app_url", placeholder="https://example.com/job")
                 new_date = st.date_input("Date Applied", value=datetime.date.today(), key="new_app_date")
+                new_status = st.selectbox("Status", options=["Applied", "Interviewed"], index=0, key="new_app_status")
                 
                 submitted = st.form_submit_button("Log Application", type="primary", use_container_width=True)
                 if submitted:
@@ -262,7 +314,8 @@ else:
                             company=new_company.strip(),
                             role=new_role.strip(),
                             date=new_date.strftime("%Y-%m-%d"),
-                            url=new_url.strip() if new_url.strip() else ""
+                            url=new_url.strip() if new_url.strip() else "",
+                            status=new_status
                         )
                         st.success("Application logged!")
                         st.rerun()
@@ -282,17 +335,23 @@ else:
                     <div class="job-card" style="margin-bottom: 0.35rem;">
                         <div class="job-company">{job['company']}</div>
                         <div class="job-title">{job['role']}</div>
-                        <div class="job-meta">⏳ Deadline: {job['deadline']}</div>
                         {url_section}
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-                col_btn_move, col_btn_del = st.columns([2, 1])
+                col_btn_move, col_btn_apply, col_btn_del = st.columns([1.3, 1.0, 0.9])
                 with col_btn_move:
-                    if st.button("Move to Applied ✓", key=f"move_to_applied_{job['id']}", type="primary", use_container_width=True):
+                    if st.button("Move to applied", key=f"move_to_applied_{job['id']}", type="primary", use_container_width=True):
                         today_str = datetime.date.today().strftime("%Y-%m-%d")
                         db.move_to_applied(job['id'], today_str)
+                        st.rerun()
+                with col_btn_apply:
+                    if st.button("Apply", key=f"apply_job_{job['id']}", type="primary", use_container_width=True):
+                        st.session_state.current_page = "customize_resume"
+                        st.session_state.customize_job = job
+                        if "custom_resume_initialized_job_id" in st.session_state:
+                            del st.session_state.custom_resume_initialized_job_id
                         st.rerun()
                 with col_btn_del:
                     if st.button("Delete", key=f"del_to_apply_{job['id']}", type="secondary", use_container_width=True):
@@ -307,7 +366,6 @@ else:
                 new_company = st.text_input("Company Name", key="new_plan_company")
                 new_role = st.text_input("Role Title", value=desired_role, key="new_plan_role")
                 new_url = st.text_input("Job URL (Optional)", key="new_plan_url", placeholder="https://example.com/job")
-                new_deadline = st.date_input("Application Deadline", value=datetime.date.today() + datetime.timedelta(days=7), key="new_plan_deadline")
                 
                 submitted = st.form_submit_button("Plan Application", type="primary", use_container_width=True)
                 if submitted:
@@ -317,7 +375,6 @@ else:
                         db.add_job_to_apply(
                             company=new_company.strip(),
                             role=new_role.strip(),
-                            deadline=new_deadline.strftime("%Y-%m-%d"),
                             url=new_url.strip() if new_url.strip() else ""
                         )
                         st.success("Job planned successfully!")
@@ -325,9 +382,16 @@ else:
 
     st.markdown("<br><hr style='border: 0; border-top: 1px solid #EFE8DD; margin: 1.5rem 0;'><br>", unsafe_allow_html=True)
 
-    # Render the interactive job-search Chatbox
-    from career_assistant import chatbox
-    chatbox.render_chatbox()
+    # Render the interactive Job Search and Resume Builder Chatboxes
+    chat_tab1, chat_tab2 = st.tabs(["💬 Job Search Assistant", "📝 Resume Builder Agent"])
+    
+    with chat_tab1:
+        from career_assistant import chatbox
+        chatbox.render_chatbox()
+        
+    with chat_tab2:
+        from career_assistant import ResumeBuilder
+        ResumeBuilder.render_resume_builder()
 
     st.markdown("<br><hr style='border: 0; border-top: 1px solid #EFE8DD; margin: 1.5rem 0;'><br>", unsafe_allow_html=True)
 

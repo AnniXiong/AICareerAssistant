@@ -231,7 +231,7 @@ def fetch_jobs_from_glassdoor_api(title, location, work_arrangement=None):
     return mapped_jobs
 
 # API Client calling the Active Jobs DB API
-def fetch_jobs_from_api(title, location, work_arrangement=None, time_frame="1h"):
+def fetch_jobs_from_api(title, location, work_arrangement=None, time_frame="24h"):
     url = "https://active-jobs-db.p.rapidapi.com/active-ats"
     
     # Retrieve credentials using os.getenv()
@@ -271,7 +271,7 @@ def fetch_jobs_from_api(title, location, work_arrangement=None, time_frame="1h")
         return f"RapidAPI Connection Failure: Unable to reach endpoint. Error: {str(e)}"
 
 # API Client calling the LinkedIn Job Search API
-def fetch_jobs_from_linkedin_api(title, location, work_arrangement=None, time_frame="1h"):
+def fetch_jobs_from_linkedin_api(title, location, work_arrangement=None, time_frame="24h"):
     url = "https://linkedin-job-search-api.p.rapidapi.com/active-jb"
     
     # Retrieve credentials using os.getenv()
@@ -287,7 +287,7 @@ def fetch_jobs_from_linkedin_api(title, location, work_arrangement=None, time_fr
     
     params = {
         "time_frame": time_frame, # Window for fresh postings
-        "limit": "5",       # Less than 6 at a time (strict limit)
+        "limit": "20",       # Less than 6 at a time (strict limit)
         "title": title
     }
     
@@ -447,18 +447,16 @@ def render_chatbox():
                     # Add to Plan Button
                     if st.button("➕ Add to Plan", key=f"chat_add_{msg_idx}_{job_idx}_{job['id']}", type="secondary", use_container_width=True):
                         # Save job to database
-                        deadline = (datetime.date.today() + datetime.timedelta(days=7)).strftime("%Y-%m-%d")
                         db.add_job_to_apply(
                             company=job['organization'],
                             role=job['title'],
-                            deadline=deadline,
                             url=job.get('url', '')
                         )
                         st.success(f"Added '{job['title']}' at {job['organization']} to your Jobs To Apply tracker!")
                         st.rerun()
 
     # Chat input box
-    if user_input := st.chat_input("Ask about new job postings..."):
+    if user_input := st.chat_input("Ask about new job postings...", key="job_chat_input"):
         # Append user query to history
         st.session_state.chat_history.append({"role": "user", "content": user_input})
         st.session_state.awaiting_assistant_response = True
@@ -488,7 +486,7 @@ def render_chatbox():
         with st.chat_message("assistant"):
             with st.spinner(f"Querying live {source} Database..."):
                 results = None
-                time_frame = "1h"
+                time_frame = "24h"
                 if source == "Glassdoor (Real-Time)":
                     results = fetch_jobs_from_glassdoor_api(parsed_title, parsed_location, work_arrangement)
                 elif source == "Active Jobs DB":
